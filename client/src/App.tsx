@@ -11,6 +11,7 @@ import Attendance from "./pages/Attendance";
 import Leaves from "./pages/Leaves";
 import Tools from "./pages/Tools";
 import Hierarchy from "./pages/Hierarchy";
+import EmployeeDetail from "./pages/EmployeeDetail";
 import DashboardLayout from "./components/DashboardLayout";
 
 function Router() {
@@ -63,6 +64,13 @@ function Router() {
         {() => (
           <DashboardLayout>
             <Hierarchy />
+          </DashboardLayout>
+        )}
+      </Route>
+      <Route path="/employees/:id">
+        {() => (
+          <DashboardLayout>
+            <EmployeeDetail />
           </DashboardLayout>
         )}
       </Route>

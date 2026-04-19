@@ -85,7 +85,7 @@ export default function Employees() {
                         </span>
                       </td>
                       <td className="py-3 px-4">
-                        <Button variant="ghost" size="sm">View</Button>
+                        <Button variant="ghost" size="sm" onClick={() => window.location.href = `/employees/${emp.id}`}>View</Button>
                       </td>
                     </tr>
                   ))}

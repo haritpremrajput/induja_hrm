@@ -2,19 +2,72 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { trpc } from '@/lib/trpc';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Plus, CheckCircle, XCircle, Clock } from 'lucide-react';
 import { useAuth } from '@/_core/hooks/useAuth';
+import { toast } from 'sonner';
 
 export default function Leaves() {
   const { user } = useAuth();
   const [selectedEmployeeId] = useState(1); // TODO: Make dynamic
   const [showRequestForm, setShowRequestForm] = useState(false);
+  const [formData, setFormData] = useState({
+    startDate: '',
+    endDate: '',
+    leaveTypeId: 1,
+    reason: '',
+  });
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const { data: leaveRequests, isLoading } = trpc.leaves.getByEmployee.useQuery(
+  const { data: leaveTypes } = trpc.reference.getLeaveTypes.useQuery(
+    { companyId: 1 },
+    { enabled: true }
+  );
+
+  const requestLeaveMutation = trpc.leaves.request.useMutation();
+
+  const { data: leaveRequests, isLoading, refetch } = trpc.leaves.getByEmployee.useQuery(
     { employeeId: selectedEmployeeId },
     { enabled: !!selectedEmployeeId }
   );
+
+  useEffect(() => {
+    if (requestLeaveMutation.isSuccess) {
+      toast.success('Leave request submitted successfully');
+      refetch();
+    }
+    if (requestLeaveMutation.isError) {
+      toast.error('Failed to submit leave request');
+    }
+  }, [requestLeaveMutation.isSuccess, requestLeaveMutation.isError, refetch]);
+
+  const handleSubmit = async () => {
+    if (!formData.startDate || !formData.endDate) {
+      toast.error('Please select both start and end dates');
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      const startDate = new Date(formData.startDate);
+      const endDate = new Date(formData.endDate);
+      const days = Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+
+      await requestLeaveMutation.mutateAsync({
+        employeeId: selectedEmployeeId,
+        leaveTypeId: formData.leaveTypeId,
+        startDate,
+        endDate,
+        days,
+        reason: formData.reason,
+      });
+
+      setFormData({ startDate: '', endDate: '', leaveTypeId: 1, reason: '' });
+      setShowRequestForm(false);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
   const getStatusIcon = (status: string) => {
     switch (status) {
@@ -73,28 +126,52 @@ export default function Leaves() {
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="text-sm font-medium">Start Date</label>
-                  <Input type="date" />
+                  <Input 
+                    type="date" 
+                    value={formData.startDate}
+                    onChange={(e) => setFormData({...formData, startDate: e.target.value})}
+                  />
                 </div>
                 <div>
                   <label className="text-sm font-medium">End Date</label>
-                  <Input type="date" />
+                  <Input 
+                    type="date"
+                    value={formData.endDate}
+                    onChange={(e) => setFormData({...formData, endDate: e.target.value})}
+                  />
                 </div>
               </div>
               <div>
                 <label className="text-sm font-medium">Leave Type</label>
-                <select className="w-full px-3 py-2 border rounded-md text-sm">
-                  <option>Select leave type...</option>
-                  <option>Sick Leave</option>
-                  <option>Vacation</option>
-                  <option>Personal</option>
+                <select 
+                  className="w-full px-3 py-2 border rounded-md text-sm"
+                  value={formData.leaveTypeId}
+                  onChange={(e) => setFormData({...formData, leaveTypeId: parseInt(e.target.value)})}
+                >
+                  <option value="">Select leave type...</option>
+                  {leaveTypes?.map(type => (
+                    <option key={type.id} value={type.id}>{type.name}</option>
+                  ))}
                 </select>
               </div>
               <div>
                 <label className="text-sm font-medium">Reason</label>
-                <textarea className="w-full px-3 py-2 border rounded-md text-sm" rows={3} placeholder="Enter reason for leave..." />
+                <textarea 
+                  className="w-full px-3 py-2 border rounded-md text-sm" 
+                  rows={3} 
+                  placeholder="Enter reason for leave..."
+                  value={formData.reason}
+                  onChange={(e) => setFormData({...formData, reason: e.target.value})}
+                />
               </div>
               <div className="flex gap-2">
-                <Button className="bg-teal-600 hover:bg-teal-700">Submit Request</Button>
+                <Button 
+                  className="bg-teal-600 hover:bg-teal-700"
+                  disabled={isSubmitting || !formData.startDate || !formData.endDate}
+                  onClick={handleSubmit}
+                >
+                  {isSubmitting ? 'Submitting...' : 'Submit Request'}
+                </Button>
                 <Button variant="outline" onClick={() => setShowRequestForm(false)}>Cancel</Button>
               </div>
             </div>
